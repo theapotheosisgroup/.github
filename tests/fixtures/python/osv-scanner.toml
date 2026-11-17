@@ -1,0 +1,20 @@
+# License overrides for packages whose registry metadata does not carry an SPDX identifier.
+# Each override names the license verified by hand from the package's own LICENSE file.
+
+[[PackageOverrides]]
+name = "fixture-pkg"
+ecosystem = "PyPI"
+license.ignore = true
+reason = "This repository's own fixture package; it is never published."
+
+[[PackageOverrides]]
+name = "colorama"
+ecosystem = "PyPI"
+license.override = ["BSD-3-Clause"]
+reason = "PyPI metadata says 'BSD'; the project LICENSE.txt is BSD-3-Clause."
+
+[[PackageOverrides]]
+name = "nodeenv"
+ecosystem = "PyPI"
+license.override = ["BSD-3-Clause"]
+reason = "PyPI metadata says 'BSD'; the project LICENSE is BSD-3-Clause."

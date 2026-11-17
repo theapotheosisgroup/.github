@@ -1,0 +1,22 @@
+# Calls the organization's shared reusable-security workflow. Standards: https://github.com/theapotheosisgroup/.github/blob/main/standards/CI-CD.md
+# Before merging, replace @main with the full commit SHA of the latest .github release and keep the
+# release tag as a trailing comment, for example: @<40-character-sha> # v1.0.0
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [$default-branch]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  security:
+    name: security
+    permissions:
+      contents: read
+    uses: theapotheosisgroup/.github/.github/workflows/reusable-security.yml@main # zizmor: ignore[unpinned-uses] -- template placeholder; pin on adoption

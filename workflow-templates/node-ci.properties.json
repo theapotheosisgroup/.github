@@ -1,0 +1,7 @@
+{
+  "name": "TAG Node.js CI",
+  "description": "Lockfile install with the pinned npm or pnpm, then format, lint, typecheck, unit and contract tests, and build. Uses the organization reusable workflow.",
+  "iconName": "octicon package",
+  "categories": ["JavaScript", "TypeScript"],
+  "filePatterns": ["^package\\.json$"]
+}

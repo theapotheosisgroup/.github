@@ -1,0 +1,7 @@
+{
+  "name": "TAG Python CI (uv)",
+  "description": "uv sync --frozen, then Ruff, Pyright, import-boundary contracts, pytest and contract tests. Uses the organization reusable workflow.",
+  "iconName": "octicon code",
+  "categories": ["Python"],
+  "filePatterns": ["^pyproject\\.toml$", "^uv\\.lock$"]
+}

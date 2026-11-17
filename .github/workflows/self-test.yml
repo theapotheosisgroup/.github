@@ -1,0 +1,74 @@
+# Self-test: calls every reusable workflow in this repository against the small fixtures in
+# tests/fixtures/, so each shared workflow is proven to run before another repository calls it.
+# The fixtures exist only to exercise the workflows. They are not application code.
+# reusable-security.yml is exercised by ci.yml (its security job), against this whole repository
+# with dependency review on, so it is covered without a second call here.
+name: self-test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: self-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  node-npm:
+    name: node-npm
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-node-ci.yml
+    with:
+      working-directory: tests/fixtures/node-npm
+
+  node-pnpm:
+    name: node-pnpm
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-node-ci.yml
+    with:
+      working-directory: tests/fixtures/node-pnpm
+      package-manager: pnpm
+      # Exercises the explicit opt-out path: the job summary must report it as skipped.
+      build-script: ""
+
+  python:
+    name: python
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-python-ci.yml
+    with:
+      working-directory: tests/fixtures/python
+
+  container:
+    name: container
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-container-ci.yml
+    with:
+      context: tests/fixtures/container
+      dockerfile: tests/fixtures/container/Dockerfile
+
+  terraform-tofu:
+    name: terraform-tofu
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-terraform-ci.yml
+    with:
+      tool: tofu
+      directories: tests/fixtures/terraform
+
+  terraform-terraform:
+    name: terraform-terraform
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-terraform-ci.yml
+    with:
+      tool: terraform
+      tool-version: "1.17.1"
+      directories: tests/fixtures/terraform

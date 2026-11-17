@@ -1,0 +1,21 @@
+{
+  "name": "fixture-node-pnpm",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test fixture for the reusable Node CI workflow. Not application code.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "format:check": "prettier --check .",
+    "lint": "node --check src/greet.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/greet.test.mjs",
+    "test:contract": "node --test test/contract.test.mjs",
+    "build": "tsc --declaration --emitDeclarationOnly --outDir dist"
+  },
+  "packageManager": "pnpm@10.34.9",
+  "devDependencies": {
+    "prettier": "3.10.1",
+    "typescript": "5.9.3"
+  }
+}

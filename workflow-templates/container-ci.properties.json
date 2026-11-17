@@ -1,0 +1,7 @@
+{
+  "name": "TAG container CI",
+  "description": "hadolint, image build without push, Trivy vulnerability scan and an SBOM artifact. Uses the organization reusable workflow.",
+  "iconName": "octicon container",
+  "categories": ["Dockerfile"],
+  "filePatterns": ["^Dockerfile$"]
+}

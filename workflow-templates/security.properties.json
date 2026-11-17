@@ -1,0 +1,7 @@
+{
+  "name": "TAG security checks",
+  "description": "gitleaks secret scanning over git history, OSV-Scanner vulnerability and license policy, and optional dependency review. Uses the organization reusable workflow.",
+  "iconName": "octicon shield-lock",
+  "categories": ["Security"],
+  "filePatterns": []
+}

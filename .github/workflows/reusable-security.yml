@@ -1,0 +1,175 @@
+# Reusable security checks: secret scanning, dependency vulnerabilities and license policy.
+#
+#   secrets       gitleaks over the full git history. Fails on any finding.
+#   dependencies  OSV-Scanner over every lockfile in the repository. Fails on any known
+#                 vulnerability and on any package whose license is outside the allowlist
+#                 (standards/SECURITY.md). Per-package exceptions live in osv-scanner.toml
+#                 beside the lockfile, each with a written reason.
+#   dependency-review
+#                 GitHub's dependency review on pull requests. Opt-in: turn it on in public
+#                 repositories, and in private ones with GitHub Code Security or GitHub
+#                 Advanced Security enabled. It needs the repository's dependency graph.
+#                 When it does not run, the dependencies job summary says so and why;
+#                 the OSV-Scanner vulnerability and license checks still run and block.
+#
+# Usage (see standards/CI-CD.md for pinning rules):
+#   jobs:
+#     security:
+#       permissions:
+#         contents: read
+#       uses: theapotheosisgroup/.github/.github/workflows/reusable-security.yml@<sha> # <tag>
+name: reusable-security
+
+on:
+  workflow_call:
+    inputs:
+      gitleaks-config:
+        description: gitleaks config file relative to the repository root. Empty uses .gitleaks.toml if present, else the gitleaks defaults.
+        type: string
+        default: ""
+      require-lockfiles:
+        description: Fail when no lockfile is found. Set false only in repositories with no dependencies at all.
+        type: boolean
+        default: true
+      license-allowlist:
+        description: Comma-separated SPDX identifiers allowed for dependencies.
+        type: string
+        default: "MIT,Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,0BSD,MPL-2.0,PSF-2.0,Python-2.0,Unlicense,CC0-1.0,BlueOak-1.0.0,Zlib"
+      dependency-review:
+        description: Run GitHub dependency review on pull requests. Turn on in public repositories, and in private ones with GitHub Code Security or Advanced Security. Needs the repository's dependency graph enabled.
+        type: boolean
+        default: false
+      dependency-review-fail-on-severity:
+        description: "Lowest advisory severity that fails dependency review: low, moderate, high or critical."
+        type: string
+        default: "moderate"
+      runs-on:
+        description: Runner label.
+        type: string
+        default: ubuntu-24.04
+      timeout-minutes:
+        description: Job timeout.
+        type: number
+        default: 15
+
+permissions: {}
+
+env:
+  GITLEAKS_VERSION: "8.30.1"
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  OSV_SCANNER_VERSION: "2.7.1"
+  OSV_SCANNER_SHA256: "fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8"
+
+jobs:
+  secrets:
+    name: secrets
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pinned gitleaks (checksum-verified)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz -C "$bin" gitleaks
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Scan git history for secrets
+        env:
+          CONFIG: ${{ inputs.gitleaks-config }}
+        run: |
+          set -euo pipefail
+          args=(git --redact --no-banner --exit-code 1 --verbose)
+          if [[ -n "$CONFIG" ]]; then
+            args+=(--config "$CONFIG")
+          elif [[ -f .gitleaks.toml ]]; then
+            args+=(--config .gitleaks.toml)
+          fi
+          gitleaks "${args[@]}" .
+
+  dependencies:
+    name: dependencies
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned OSV-Scanner (checksum-verified)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo osv-scanner "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  osv-scanner" | sha256sum -c -
+          install -m 0755 osv-scanner "$bin/osv-scanner"
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Scan lockfiles for vulnerabilities and license policy
+        env:
+          REQUIRE_LOCKFILES: ${{ inputs.require-lockfiles }}
+          LICENSES: ${{ inputs.license-allowlist }}
+        run: |
+          set -euo pipefail
+          args=(scan source --recursive --licenses="$LICENSES")
+          if [[ "$REQUIRE_LOCKFILES" != true ]]; then
+            args+=(--allow-no-lockfiles)
+          fi
+          osv-scanner "${args[@]}" .
+
+      - name: Report whether dependency review runs
+        if: always()
+        env:
+          DEPENDENCY_REVIEW: ${{ inputs.dependency-review }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$DEPENDENCY_REVIEW" != true ]]; then
+            status="**not run**: turned off by the caller (\`dependency-review: false\`)"
+          elif [[ "$EVENT_NAME" != pull_request ]]; then
+            status="**not run**: the event is \`$EVENT_NAME\`, and dependency review runs only on pull requests"
+          else
+            status="runs in the \`dependency-review\` job"
+          fi
+          {
+            echo "### Security checks"
+            echo
+            echo "- OSV-Scanner vulnerabilities and license allowlist: run (blocking)"
+            echo "- GitHub dependency review: $status"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  dependency-review:
+    name: dependency-review
+    if: inputs.dependency-review && github.event_name == 'pull_request'
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    steps:
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: ${{ inputs.dependency-review-fail-on-severity }}
+          allow-licenses: ${{ inputs.license-allowlist }}

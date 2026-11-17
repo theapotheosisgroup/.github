@@ -1,0 +1,7 @@
+# zizmor configuration for this repository.
+rules:
+  # zizmor suggests GitHub's newer `$/` self-repository syntax for local reusable workflow calls.
+  # actionlint 1.7.12 (also blocking in ci.yml) rejects `$/`, and `./` has the same meaning, so
+  # this repository keeps `./`. Revisit when actionlint supports `$/`.
+  self-repository:
+    disable: true

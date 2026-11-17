@@ -1,0 +1,32 @@
+# Weekly check of external links in the Markdown files. It is scheduled rather than run on pull
+# requests so that a third-party outage cannot block a merge; ci.yml checks relative links on
+# every pull request. A failure here is fixed by a normal pull request.
+name: links-external
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  links:
+    name: external links
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check all links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: --include-fragments --no-progress --max-retries 3 --exclude-path node_modules './**/*.md'
+          fail: true
+          format: markdown
+          jobSummary: true

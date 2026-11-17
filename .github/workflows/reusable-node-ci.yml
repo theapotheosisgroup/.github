@@ -1,0 +1,211 @@
+# Reusable Node.js / TypeScript CI.
+#
+# Installs from the repository's lockfile with its own pinned package manager (npm or pnpm),
+# then runs the format, lint, typecheck, unit test, contract test and build scripts.
+# Every check is on by default. A caller turns one off only by passing an empty string,
+# so an opt-out is visible in the caller's diff and in the job summary.
+#
+# Usage (see standards/CI-CD.md for pinning rules):
+#   jobs:
+#     node:
+#       permissions:
+#         contents: read
+#       uses: theapotheosisgroup/.github/.github/workflows/reusable-node-ci.yml@<sha> # <tag>
+#       with:
+#         working-directory: .
+name: reusable-node-ci
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory holding package.json and the lockfile, relative to the repository root.
+        type: string
+        default: "."
+      package-manager:
+        description: "npm or pnpm. Empty: detected from the lockfile (pnpm-lock.yaml or package-lock.json)."
+        type: string
+        default: ""
+      node-version:
+        description: Exact Node.js version. Empty uses node-version-file.
+        type: string
+        default: ""
+      node-version-file:
+        description: Version file relative to working-directory, used when node-version is empty.
+        type: string
+        default: ".nvmrc"
+      format-script:
+        description: package.json script that checks formatting without writing. Empty skips.
+        type: string
+        default: "format:check"
+      lint-script:
+        description: package.json script that runs the linter. Empty skips.
+        type: string
+        default: "lint"
+      typecheck-script:
+        description: package.json script that runs the type checker. Empty skips.
+        type: string
+        default: "typecheck"
+      test-script:
+        description: package.json script that runs unit tests. Empty skips.
+        type: string
+        default: "test"
+      contract-test-script:
+        description: package.json script that runs route and API contract tests. Empty skips.
+        type: string
+        default: "test:contract"
+      build-script:
+        description: package.json script that runs the production build. Empty skips.
+        type: string
+        default: "build"
+      runs-on:
+        description: Runner label.
+        type: string
+        default: ubuntu-24.04
+      timeout-minutes:
+        description: Job timeout.
+        type: number
+        default: 30
+
+permissions: {}
+
+jobs:
+  node:
+    name: node
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Detect package manager and lockfile
+        id: pm
+        env:
+          REQUESTED: ${{ inputs.package-manager }}
+          WORKDIR: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+          pm="$REQUESTED"
+          if [[ -z "$pm" ]]; then
+            if [[ -f pnpm-lock.yaml ]]; then pm=pnpm
+            elif [[ -f package-lock.json ]]; then pm=npm
+            else
+              echo "::error::No pnpm-lock.yaml or package-lock.json in '$WORKDIR'. CI installs from a committed lockfile only."
+              exit 1
+            fi
+          fi
+          case "$pm" in
+            npm) lock=package-lock.json ;;
+            pnpm) lock=pnpm-lock.yaml ;;
+            *) echo "::error::Unsupported package-manager '$pm' (supported: npm, pnpm)."; exit 1 ;;
+          esac
+          if [[ ! -f "$lock" ]]; then
+            echo "::error::package-manager is '$pm' but '$WORKDIR/$lock' does not exist."
+            exit 1
+          fi
+          {
+            echo "name=$pm"
+            echo "lockfile=${WORKDIR%/}/$lock"
+            echo "package-json=${WORKDIR%/}/package.json"
+          } >> "$GITHUB_OUTPUT"
+          echo "Package manager: $pm (lockfile $WORKDIR/$lock)"
+
+      - name: Set up pnpm from package.json packageManager
+        if: steps.pm.outputs.name == 'pnpm'
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: ${{ steps.pm.outputs.package-json }}
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          node-version-file: ${{ inputs.node-version == '' && format('{0}/{1}', inputs.working-directory, inputs.node-version-file) || '' }}
+          cache: ${{ steps.pm.outputs.name }}
+          cache-dependency-path: ${{ steps.pm.outputs.lockfile }}
+
+      - name: Install from lockfile
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+        run: |
+          set -euo pipefail
+          if [[ "$PM" == pnpm ]]; then
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Format check
+        if: inputs.format-script != ''
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+          SCRIPT: ${{ inputs.format-script }}
+        run: '"$PM" run "$SCRIPT"'
+
+      - name: Lint
+        if: inputs.lint-script != ''
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+          SCRIPT: ${{ inputs.lint-script }}
+        run: '"$PM" run "$SCRIPT"'
+
+      - name: Typecheck
+        if: inputs.typecheck-script != ''
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+          SCRIPT: ${{ inputs.typecheck-script }}
+        run: '"$PM" run "$SCRIPT"'
+
+      - name: Unit tests
+        if: inputs.test-script != ''
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+          SCRIPT: ${{ inputs.test-script }}
+        run: '"$PM" run "$SCRIPT"'
+
+      - name: Contract tests
+        if: inputs.contract-test-script != ''
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+          SCRIPT: ${{ inputs.contract-test-script }}
+        run: '"$PM" run "$SCRIPT"'
+
+      - name: Production build
+        if: inputs.build-script != ''
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+          SCRIPT: ${{ inputs.build-script }}
+        run: '"$PM" run "$SCRIPT"'
+
+      - name: Summarize configured checks
+        if: always()
+        env:
+          FORMAT: ${{ inputs.format-script }}
+          LINT: ${{ inputs.lint-script }}
+          TYPECHECK: ${{ inputs.typecheck-script }}
+          TEST: ${{ inputs.test-script }}
+          CONTRACT: ${{ inputs.contract-test-script }}
+          BUILD: ${{ inputs.build-script }}
+          WORKDIR: ${{ inputs.working-directory }}
+        run: |
+          row() { if [[ -n "$2" ]]; then echo "| $1 | \`$2\` |"; else echo "| $1 | **skipped by caller** |"; fi; }
+          {
+            echo "### Node CI checks (\`$WORKDIR\`)"
+            echo "| Check | Script |"
+            echo "|---|---|"
+            row "Format" "$FORMAT"
+            row "Lint" "$LINT"
+            row "Typecheck" "$TYPECHECK"
+            row "Unit tests" "$TEST"
+            row "Contract tests" "$CONTRACT"
+            row "Build" "$BUILD"
+          } >> "$GITHUB_STEP_SUMMARY"

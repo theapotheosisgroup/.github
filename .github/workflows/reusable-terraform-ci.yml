@@ -1,0 +1,167 @@
+# Reusable Terraform / OpenTofu validation.
+#
+# Runs `fmt -check`, `init -backend=false`, `validate`, TFLint and a Trivy infrastructure
+# policy scan on each listed root or module directory. It needs no cloud credentials, reads no
+# state and never plans or applies. Plans run only in the infrastructure repository's own
+# authorized workflows (standards/TERRAFORM.md).
+#
+# Usage (see standards/CI-CD.md for pinning rules):
+#   jobs:
+#     terraform:
+#       permissions:
+#         contents: read
+#       uses: theapotheosisgroup/.github/.github/workflows/reusable-terraform-ci.yml@<sha> # <tag>
+#       with:
+#         tool: tofu
+#         directories: |
+#           infra/modules/example
+#           infra/environments/develop
+name: reusable-terraform-ci
+
+on:
+  workflow_call:
+    inputs:
+      tool:
+        description: "terraform or tofu."
+        type: string
+        default: "tofu"
+      tool-version:
+        description: Exact Terraform or OpenTofu version.
+        type: string
+        default: "1.13.9"
+      directories:
+        description: Newline-separated root and module directories, relative to the repository root.
+        type: string
+        default: "."
+      tflint-version:
+        description: Exact TFLint version (with the leading v).
+        type: string
+        default: "v0.66.0"
+      tflint-config:
+        description: TFLint config file relative to the repository root. Empty uses each directory's .tflint.hcl, if any.
+        type: string
+        default: ""
+      scan-severity:
+        description: Comma-separated Trivy misconfiguration severities that fail the job.
+        type: string
+        default: "CRITICAL,HIGH"
+      runs-on:
+        description: Runner label.
+        type: string
+        default: ubuntu-24.04
+      timeout-minutes:
+        description: Job timeout.
+        type: number
+        default: 20
+
+permissions: {}
+
+env:
+  TRIVY_VERSION: "0.76.2"
+  TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+
+jobs:
+  terraform:
+    name: terraform
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate inputs
+        id: dirs
+        env:
+          TOOL: ${{ inputs.tool }}
+          DIRECTORIES: ${{ inputs.directories }}
+        run: |
+          set -euo pipefail
+          case "$TOOL" in
+            terraform|tofu) ;;
+            *) echo "::error::Unsupported tool '$TOOL' (supported: terraform, tofu)."; exit 1 ;;
+          esac
+          count=0
+          while IFS= read -r dir; do
+            dir="${dir#"${dir%%[![:space:]]*}"}"; dir="${dir%"${dir##*[![:space:]]}"}"
+            [[ -z "$dir" ]] && continue
+            if [[ ! -d "$dir" ]]; then
+              echo "::error::Directory '$dir' does not exist."
+              exit 1
+            fi
+            count=$((count + 1))
+          done <<< "$DIRECTORIES"
+          if (( count == 0 )); then
+            echo "::error::No directories given."
+            exit 1
+          fi
+
+      - name: Set up OpenTofu
+        if: inputs.tool == 'tofu'
+        uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ inputs.tool-version }}
+          tofu_wrapper: false
+
+      - name: Set up Terraform
+        if: inputs.tool == 'terraform'
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ inputs.tool-version }}
+          terraform_wrapper: false
+
+      - name: Set up TFLint
+        uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: ${{ inputs.tflint-version }}
+          tflint_wrapper: false
+
+      - name: Install pinned Trivy (checksum-verified)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo trivy.tar.gz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          tar -xzf trivy.tar.gz -C "$bin" trivy
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Format, validate, lint and scan
+        env:
+          TOOL: ${{ inputs.tool }}
+          DIRECTORIES: ${{ inputs.directories }}
+          TFLINT_CONFIG: ${{ inputs.tflint-config }}
+          SEVERITY: ${{ inputs.scan-severity }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tflint_config=()
+          if [[ -n "$TFLINT_CONFIG" ]]; then
+            tflint_config=(--config "$GITHUB_WORKSPACE/$TFLINT_CONFIG")
+          fi
+          while IFS= read -r dir; do
+            dir="${dir#"${dir%%[![:space:]]*}"}"; dir="${dir%"${dir##*[![:space:]]}"}"
+            [[ -z "$dir" ]] && continue
+            echo "::group::$dir"
+            "$TOOL" -chdir="$dir" fmt -check -recursive -diff
+            "$TOOL" -chdir="$dir" init -backend=false -input=false -no-color
+            "$TOOL" -chdir="$dir" validate -no-color
+            tflint --chdir "$dir" "${tflint_config[@]}" --init
+            tflint --chdir "$dir" "${tflint_config[@]}" --format compact
+            trivy config --exit-code 1 --severity "$SEVERITY" "$dir"
+            echo "::endgroup::"
+            echo "| \`$dir\` | fmt, validate, tflint, trivy config: passed |" >> "$RUNNER_TEMP/summary.md"
+          done <<< "$DIRECTORIES"
+          {
+            echo "### Terraform CI ($TOOL)"
+            echo "| Directory | Result |"
+            echo "|---|---|"
+            cat "$RUNNER_TEMP/summary.md"
+          } >> "$GITHUB_STEP_SUMMARY"
