@@ -1,0 +1,160 @@
+# CI for this repository: workflow lint, workflow-template metadata, Markdown and link lint,
+# CODEOWNERS validity, and the shared security checks run against this repository itself.
+# Every job is blocking. Required check names are listed in standards/CI-CD.md.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  ACTIONLINT_VERSION: "1.7.12"
+  ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned actionlint (checksum-verified)
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Lint workflows and workflow templates
+        run: |
+          set -euo pipefail
+          command -v shellcheck
+          actionlint -no-color
+          actionlint -no-color workflow-templates/*.yml
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Audit workflows for security issues
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          version: "1.32.0"
+          inputs: |
+            .github/workflows
+            workflow-templates
+          advanced-security: false
+          annotations: true
+
+  workflow-templates:
+    name: workflow-templates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Test the template checker
+        run: python3 -m unittest discover -s .github/scripts/tests -v
+
+      - name: Check every template has valid metadata
+        run: python3 .github/scripts/check_workflow_templates.py workflow-templates
+
+  markdown:
+    name: markdown
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
+        with:
+          globs: |
+            **/*.md
+            #**/node_modules
+
+  links:
+    name: links
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Offline: every relative link and in-repo anchor must resolve. External URLs are checked
+      # on a schedule by links-external.yml, so a third-party outage cannot block a merge.
+      - name: Check relative links and anchors
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: --offline --include-fragments --no-progress --exclude-path node_modules './**/*.md'
+          fail: true
+          format: markdown
+          jobSummary: true
+
+  codeowners:
+    name: codeowners
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Ask GitHub to validate CODEOWNERS at this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          errors="$(gh api "repos/$REPO/codeowners/errors?ref=$REF" --jq '.errors')"
+          echo "$errors"
+          if [[ "$errors" != "[]" ]]; then
+            echo "::error::CODEOWNERS has errors (see above)."
+            exit 1
+          fi
+
+  security:
+    name: security
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-security.yml
+    with:
+      # Public repository: GitHub dependency review is available without Code Security.
+      dependency-review: true

@@ -1,0 +1,12 @@
+{
+  "config": {
+    "default": true,
+    // Long lines are fine in prose and tables.
+    "MD013": false,
+    // The pull request template starts at a level-2 heading by design.
+    "MD041": false,
+    // Repeated headings are fine in different sections (for example "Context" in ADRs).
+    "MD024": { "siblings_only": true }
+  },
+  "ignores": ["**/node_modules/**", "**/.venv/**"]
+}

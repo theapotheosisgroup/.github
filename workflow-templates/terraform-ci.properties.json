@@ -1,0 +1,7 @@
+{
+  "name": "TAG Terraform/OpenTofu CI",
+  "description": "fmt, init without backend, validate, TFLint and a Trivy policy scan. No credentials, no plan, no apply. Uses the organization reusable workflow.",
+  "iconName": "octicon server",
+  "categories": ["HCL"],
+  "filePatterns": ["\\.tf$"]
+}

@@ -1,0 +1,168 @@
+# Reusable Python CI, using uv.
+#
+# Verifies the committed uv.lock is current, installs with `uv sync --frozen`, then runs the
+# format, lint, typecheck, import-boundary, unit test and contract test commands.
+# Every command has a conventional default. A repository with an existing linter or type checker
+# passes its own command. A caller turns a check off only by passing an empty string, so the
+# opt-out is visible in the caller's diff and in the job summary.
+#
+# Usage (see standards/CI-CD.md for pinning rules):
+#   jobs:
+#     python:
+#       permissions:
+#         contents: read
+#       uses: theapotheosisgroup/.github/.github/workflows/reusable-python-ci.yml@<sha> # <tag>
+#       with:
+#         working-directory: .
+name: reusable-python-ci
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory holding pyproject.toml and uv.lock, relative to the repository root.
+        type: string
+        default: "."
+      python-version:
+        description: Python version for uv. Empty uses the project's .python-version or requires-python.
+        type: string
+        default: ""
+      uv-version:
+        description: uv version. Empty uses the project's required-version, or the latest uv.
+        type: string
+        default: ""
+      format-command:
+        description: Command that checks formatting without writing. Empty skips.
+        type: string
+        default: "uv run --frozen ruff format --check"
+      lint-command:
+        description: Lint command. Empty skips.
+        type: string
+        default: "uv run --frozen ruff check"
+      typecheck-command:
+        description: Type-check command. Empty skips.
+        type: string
+        default: "uv run --frozen pyright"
+      boundary-command:
+        description: Import-boundary check (import-linter contracts by default). Empty skips.
+        type: string
+        default: "uv run --frozen lint-imports"
+      test-command:
+        description: Unit test command. Empty skips.
+        type: string
+        default: "uv run --frozen pytest"
+      contract-test-command:
+        description: Contract test command. Empty skips.
+        type: string
+        default: "uv run --frozen pytest -m contract"
+      runs-on:
+        description: Runner label.
+        type: string
+        default: ubuntu-24.04
+      timeout-minutes:
+        description: Job timeout.
+        type: number
+        default: 30
+
+permissions: {}
+
+jobs:
+  python:
+    name: python
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require a committed uv.lock
+        env:
+          WORKDIR: ${{ inputs.working-directory }}
+        run: |
+          if [[ ! -f uv.lock ]]; then
+            echo "::error::No uv.lock in '$WORKDIR'. CI installs from a committed lockfile only."
+            exit 1
+          fi
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ inputs.uv-version }}
+          python-version: ${{ inputs.python-version }}
+          working-directory: ${{ inputs.working-directory }}
+          enable-cache: true
+          cache-dependency-glob: ${{ format('{0}/uv.lock', inputs.working-directory) }}
+
+      - name: Verify uv.lock matches pyproject.toml
+        run: uv lock --check
+
+      - name: Install from lockfile
+        run: uv sync --frozen
+
+      - name: Format check
+        if: inputs.format-command != ''
+        env:
+          CMD: ${{ inputs.format-command }}
+        run: bash -euo pipefail -c "$CMD"
+
+      - name: Lint
+        if: inputs.lint-command != ''
+        env:
+          CMD: ${{ inputs.lint-command }}
+        run: bash -euo pipefail -c "$CMD"
+
+      - name: Typecheck
+        if: inputs.typecheck-command != ''
+        env:
+          CMD: ${{ inputs.typecheck-command }}
+        run: bash -euo pipefail -c "$CMD"
+
+      - name: Import boundaries
+        if: inputs.boundary-command != ''
+        env:
+          CMD: ${{ inputs.boundary-command }}
+        run: bash -euo pipefail -c "$CMD"
+
+      - name: Unit tests
+        if: inputs.test-command != ''
+        env:
+          CMD: ${{ inputs.test-command }}
+        run: bash -euo pipefail -c "$CMD"
+
+      - name: Contract tests
+        if: inputs.contract-test-command != ''
+        env:
+          CMD: ${{ inputs.contract-test-command }}
+        run: bash -euo pipefail -c "$CMD"
+
+      - name: Summarize configured checks
+        if: always()
+        env:
+          FORMAT: ${{ inputs.format-command }}
+          LINT: ${{ inputs.lint-command }}
+          TYPECHECK: ${{ inputs.typecheck-command }}
+          BOUNDARY: ${{ inputs.boundary-command }}
+          TEST: ${{ inputs.test-command }}
+          CONTRACT: ${{ inputs.contract-test-command }}
+          WORKDIR: ${{ inputs.working-directory }}
+        run: |
+          row() { if [[ -n "$2" ]]; then echo "| $1 | \`$2\` |"; else echo "| $1 | **skipped by caller** |"; fi; }
+          {
+            echo "### Python CI checks (\`$WORKDIR\`)"
+            echo "| Check | Command |"
+            echo "|---|---|"
+            row "Format" "$FORMAT"
+            row "Lint" "$LINT"
+            row "Typecheck" "$TYPECHECK"
+            row "Import boundaries" "$BOUNDARY"
+            row "Unit tests" "$TEST"
+            row "Contract tests" "$CONTRACT"
+          } >> "$GITHUB_STEP_SUMMARY"

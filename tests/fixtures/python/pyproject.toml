@@ -1,0 +1,41 @@
+[project]
+name = "fixture-pkg"
+version = "0.0.0"
+description = "Test fixture for the reusable Python CI workflow. Not application code."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "import-linter",
+  "pyright",
+  "pytest",
+  "ruff",
+]
+
+[build-system]
+requires = ["uv_build>=0.9,<1"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = ["contract: tests that pin a published interface"]
+
+[tool.pyright]
+include = ["src", "tests"]
+strict = ["src"]
+
+[tool.importlinter]
+root_package = "fixture_pkg"
+
+[[tool.importlinter.contracts]]
+name = "The core does not import adapters"
+type = "forbidden"
+source_modules = ["fixture_pkg.core"]
+forbidden_modules = ["fixture_pkg.adapters"]

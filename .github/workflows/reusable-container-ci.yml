@@ -1,0 +1,176 @@
+# Reusable container build validation.
+#
+# Lints the Dockerfile with hadolint, builds the image without pushing, scans it with Trivy
+# (fails on fixable CRITICAL and HIGH findings by default) and uploads a CycloneDX SBOM.
+# It never pushes or publishes. Publishing to GHCR by digest, with provenance, follows the
+# release rules in standards/CI-CD.md and runs from the owning repository's release workflow.
+#
+# Usage (see standards/CI-CD.md for pinning rules):
+#   jobs:
+#     container:
+#       permissions:
+#         contents: read
+#       uses: theapotheosisgroup/.github/.github/workflows/reusable-container-ci.yml@<sha> # <tag>
+#       with:
+#         context: .
+#         dockerfile: Dockerfile
+name: reusable-container-ci
+
+on:
+  workflow_call:
+    inputs:
+      context:
+        description: Build context, relative to the repository root.
+        type: string
+        default: "."
+      dockerfile:
+        description: Dockerfile path, relative to the repository root.
+        type: string
+        default: "Dockerfile"
+      target:
+        description: Build stage to target. Empty builds the final stage.
+        type: string
+        default: ""
+      build-args:
+        description: Newline-separated KEY=value build arguments. Never pass secrets here.
+        type: string
+        default: ""
+      platform:
+        description: Single platform to build and scan (the image is loaded locally for scanning).
+        type: string
+        default: "linux/amd64"
+      hadolint:
+        description: Lint the Dockerfile with hadolint.
+        type: boolean
+        default: true
+      hadolint-failure-threshold:
+        description: "hadolint severity that fails the job: error, warning, info or style."
+        type: string
+        default: "warning"
+      scan-severity:
+        description: Comma-separated Trivy severities that fail the job.
+        type: string
+        default: "CRITICAL,HIGH"
+      ignore-unfixed:
+        description: Do not fail on vulnerabilities that have no fixed version yet.
+        type: boolean
+        default: true
+      sbom-artifact:
+        description: Upload a CycloneDX SBOM of the built image as a workflow artifact.
+        type: boolean
+        default: true
+      runs-on:
+        description: Runner label.
+        type: string
+        default: ubuntu-24.04
+      timeout-minutes:
+        description: Job timeout.
+        type: number
+        default: 30
+
+permissions: {}
+
+env:
+  HADOLINT_VERSION: "2.15.1"
+  HADOLINT_SHA256: "c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507"
+  TRIVY_VERSION: "0.76.2"
+  TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+
+jobs:
+  container:
+    name: container
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned scanners (checksum-verified)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo hadolint "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-x86_64"
+          echo "${HADOLINT_SHA256}  hadolint" | sha256sum -c -
+          install -m 0755 hadolint "$bin/hadolint"
+          curl -fsSLo trivy.tar.gz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          tar -xzf trivy.tar.gz -C "$bin" trivy
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Lint Dockerfile
+        if: inputs.hadolint
+        env:
+          DOCKERFILE: ${{ inputs.dockerfile }}
+          THRESHOLD: ${{ inputs.hadolint-failure-threshold }}
+        run: hadolint --failure-threshold "$THRESHOLD" "$DOCKERFILE"
+
+      - name: Compute local image reference
+        id: image
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          DOCKERFILE: ${{ inputs.dockerfile }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          name="${REPO#*/}"
+          name="${name,,}"
+          name="${name//[^a-z0-9._-]/-}"
+          name="${name#[._-]}"
+          artifact="sbom-${DOCKERFILE}${TARGET:+-$TARGET}"
+          artifact="${artifact//[^A-Za-z0-9._-]/-}"
+          {
+            echo "ref=ci.local/${name:-image}:${SHA}"
+            echo "sbom-artifact=${artifact}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          target: ${{ inputs.target }}
+          build-args: ${{ inputs.build-args }}
+          platforms: ${{ inputs.platform }}
+          tags: ${{ steps.image.outputs.ref }}
+          load: true
+          push: false
+          provenance: false
+
+      - name: Scan image for vulnerabilities
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+          SEVERITY: ${{ inputs.scan-severity }}
+          IGNORE_UNFIXED: ${{ inputs.ignore-unfixed }}
+        run: |
+          set -euo pipefail
+          args=(image --exit-code 1 --severity "$SEVERITY" --no-progress)
+          if [[ "$IGNORE_UNFIXED" == true ]]; then args+=(--ignore-unfixed); fi
+          trivy "${args[@]}" "$IMAGE"
+
+      - name: Generate SBOM
+        if: inputs.sbom-artifact
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+        run: trivy image --format cyclonedx --output "$RUNNER_TEMP/sbom.cdx.json" --no-progress "$IMAGE"
+
+      - name: Upload SBOM
+        if: inputs.sbom-artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.image.outputs.sbom-artifact }}
+          path: ${{ runner.temp }}/sbom.cdx.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14

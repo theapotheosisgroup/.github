@@ -1,0 +1,19 @@
+# Code owners for theapotheosisgroup/.github.
+#
+# CODEOWNERS is not an organization-wide default: it applies to this repository only. Every other
+# repository keeps its own CODEOWNERS (standards/REPOSITORIES.md).
+#
+# Owners are individual accounts until the organization creates teams. When it does, replace the
+# entries below with teams, for example a platform-maintainers team. A team must exist and have write
+# access before it can be named here, or GitHub reports the line as an error (ci.yml checks this).
+
+*                     @inocult
+
+# Shared workflows and their self-test change every caller's CI.
+/.github/workflows/   @inocult
+/workflow-templates/  @inocult
+
+# Standards and security policy.
+/standards/           @inocult
+/SECURITY.md          @inocult
+/CODEOWNERS           @inocult
