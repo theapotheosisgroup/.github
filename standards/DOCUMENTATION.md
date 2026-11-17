@@ -26,7 +26,7 @@ The files every application repository must have are listed in [REPOSITORIES](RE
 
 ## Status labels
 
-Every document that describes components **must** say which state each one is in, using exactly these labels:
+Every document that describes components (services, modules, MCP servers, agents, workflows and other deployable or runnable parts) **must** say which state each one is in, using exactly these labels. Repositories are not components: they use the [repository status labels](#repository-status-labels) instead.
 
 | Label | Meaning |
 | --- | --- |
@@ -38,6 +38,17 @@ Every document that describes components **must** say which state each one is in
 | **Blocked** | Cannot proceed until a named dependency or decision is resolved |
 
 Never describe future architecture as operational. When the state changes, update the label in the same pull request.
+
+### Repository status labels
+
+A repository's lifecycle is recorded with exactly these labels, for example in the organization [repository catalogue](../README.md#repository-catalogue). The components inside a repository still carry their own component status labels.
+
+| Label | Meaning |
+| --- | --- |
+| **Active** | Maintained and in use |
+| **New** | Created in the foundation reorganization; scaffolding only, nothing migrated yet |
+| **Legacy source** | Read-only migration source that still runs its existing deployments |
+| **Not in scope** | Kept for reference, not part of TAG or the reorganization |
 
 ## Architecture decision records
 

@@ -28,9 +28,9 @@ on:
         type: string
         default: ""
       uv-version:
-        description: uv version. Empty uses the project's required-version, or the latest uv.
+        description: Exact uv version to install. Pass a newer exact version to upgrade; never "latest".
         type: string
-        default: ""
+        default: "0.13.8"
       format-command:
         description: Command that checks formatting without writing. Empty skips.
         type: string

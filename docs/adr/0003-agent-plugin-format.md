@@ -8,7 +8,7 @@
 
 ## Context
 
-Agent definitions live in `tag-agents`, and the agent registry is the AGNTCY Agent Directory, deployed from `tag-platform` ([AGENTS-AND-SKILLS](../../standards/AGENTS-AND-SKILLS.md#agents)). There is no standard way to package an agent so that it can be installed, registered and run the same way everywhere. The mission lead has set the direction that an "agent plugin 1.0" format and an installer for it become the standard.
+Agent definitions live in `tag-agents`, and the agent registry will be the AGNTCY Agent Directory, deployed from `tag-platform` (proposed, not yet deployed) ([AGENTS-AND-SKILLS](../../standards/AGENTS-AND-SKILLS.md#agents)). There is no standard way to package an agent so that it can be installed, registered and run the same way everywhere. The mission lead has set the direction that an "agent plugin 1.0" format and an installer for it become the standard.
 
 ## Decision (proposed)
 

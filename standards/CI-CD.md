@@ -43,7 +43,7 @@ jobs:
 | Workflow | Job | Main inputs (all optional) | Caller grants |
 | --- | --- | --- | --- |
 | `reusable-node-ci.yml` | `node` | `working-directory`, `package-manager` (`npm`/`pnpm`, else detected from the lockfile), `node-version` or `node-version-file`, and one input per script: `format-script`, `lint-script`, `typecheck-script`, `test-script`, `contract-test-script`, `build-script` | `contents: read` |
-| `reusable-python-ci.yml` | `python` | `working-directory`, `python-version`, `uv-version`, and one input per command: `format-command`, `lint-command`, `typecheck-command`, `boundary-command`, `test-command`, `contract-test-command` | `contents: read` |
+| `reusable-python-ci.yml` | `python` | `working-directory`, `python-version`, `uv-version` (exact, default pinned), and one input per command: `format-command`, `lint-command`, `typecheck-command`, `boundary-command`, `test-command`, `contract-test-command` | `contents: read` |
 | `reusable-container-ci.yml` | `container` | `context`, `dockerfile`, `target`, `build-args`, `platform`, `hadolint`, `scan-severity`, `ignore-unfixed`, `sbom-artifact` | `contents: read` |
 | `reusable-terraform-ci.yml` | `terraform` | `tool` (`tofu`/`terraform`), `tool-version`, `directories` (one per line), `tflint-version`, `tflint-config`, `scan-severity` | `contents: read` |
 | `reusable-security.yml` | `secrets`, `dependencies`, `dependency-review` | `gitleaks-config`, `require-lockfiles`, `license-allowlist`, `dependency-review`, `dependency-review-fail-on-severity` | `contents: read` |

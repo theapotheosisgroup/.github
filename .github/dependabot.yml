@@ -1,5 +1,6 @@
 # Keeps the SHA-pinned actions in this repository's workflows current. Dependabot rewrites the
 # SHA and its version comment together; each update is reviewed like any other change.
+# Also bumps the self-test fixture lockfiles, which the required dependency scan checks.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -10,4 +11,24 @@ updates:
       default-days: 7
     groups:
       actions:
+        patterns: ["*"]
+  - package-ecosystem: uv
+    directory: /tests/fixtures/python
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      python-fixture:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directories:
+      - /tests/fixtures/node-npm
+      - /tests/fixtures/node-pnpm
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      node-fixtures:
         patterns: ["*"]

@@ -20,7 +20,7 @@ Naming, required contents, visibility, and the branch and pull request rules. Th
 
 Every application repository **must** have:
 
-- `README.md`: responsibility, contract, status label ([DOCUMENTATION](DOCUMENTATION.md#status-labels)), local development commands, release and rollback summary;
+- `README.md`: responsibility, contract, repository status label ([DOCUMENTATION](DOCUMENTATION.md#repository-status-labels)) and the status label of each component ([DOCUMENTATION](DOCUMENTATION.md#status-labels)), local development commands, release and rollback summary;
 - `AGENTS.md`: a short file that links to these standards and holds only repository-specific instructions and verified invariants ([AGENTS-AND-SKILLS](AGENTS-AND-SKILLS.md#coding-agents));
 - `ARCHITECTURE.md`, `CONTRIBUTING.md`, `SECURITY.md` (may defer to the organization policy) and `CODEOWNERS`;
 - `docs/` and `docs/adr/`;
@@ -30,7 +30,7 @@ Every application repository **must** have:
 - a committed dependency lockfile for its language ([CODE-STYLE](CODE-STYLE.md#dependencies));
 - documented release and rollback procedures ([RELEASES](RELEASES.md)).
 
-A repository created ahead of its code holds an explicitly justified scaffold: its contract, documentation, CI for what exists, and a status of *Proposed but not implemented*. It must not contain placeholder application code written only to make CI pass.
+A repository created ahead of its code holds an explicitly justified scaffold: its contract, documentation, CI for what exists, a repository status of *New*, and its planned components marked *Proposed but not implemented*. It must not contain placeholder application code written only to make CI pass.
 
 `CODEOWNERS` is not inherited from `.github`; each repository keeps its own.
 

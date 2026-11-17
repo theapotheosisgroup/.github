@@ -12,9 +12,9 @@ Conventions for TAG's AI agents, for installable skills, and for coding agents t
 - Domain decisions stay in their domain repository. A generic agent asks the domain through its approved interface; it does not reimplement finance or governance rules.
 - Inactive or incomplete components (for example an unfinished transport) are documented as such and never described as operational.
 
-### Registry
+### Registry — **Proposed**
 
-- The agent registry is the **AGNTCY Agent Directory**, deployed from `tag-platform`. Agent records are generated from the definitions in `tag-agents`; the registry is not a second source of truth.
+- The agent registry will be the **AGNTCY Agent Directory**, deployed from `tag-platform`. It is not deployed yet. Agent records are generated from the definitions in `tag-agents`; the registry is not a second source of truth.
 - Registering an agent publishes metadata only. It grants no permission: every call an agent makes is still authorized by the owner of the resource.
 
 ### Agent plugin format and installer — **Proposed**

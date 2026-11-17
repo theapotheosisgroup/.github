@@ -24,7 +24,7 @@ The aim is clear ownership, explicit contracts and independently deployable comp
 
 | Domain | Owner | Notes |
 | --- | --- | --- |
-| Trust and business records: parties, Nexuses, permissions, append-only ledger | `aletia` | A standalone product, not part of TAG. TAG consumes it only through its published APIs and never shares its database. |
+| Trust and business records: parties, Nexuses, permissions, append-only ledger | `aletia` | A standalone, blockchain-based product, not part of TAG, to be reorganized around DeFi and on-chain use. TAG consumes it only through its published APIs and never shares its database. |
 | Agent definitions, capability metadata, generic agent execution, agent identity | `tag-agents` | Domain decisions stay in the domain that owns them. |
 | External provider communication, OAuth connection lifecycle, provider credential custody | `tag-connectors` | Never decides whether a client may see a tenant's data. |
 | Portable skills | `tag-skills` | Skills confer no permissions ([AGENTS-AND-SKILLS](AGENTS-AND-SKILLS.md#skills)). |

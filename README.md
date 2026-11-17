@@ -40,30 +40,37 @@ Arrows are logical dependencies on published contracts, not network permissions.
 
 ## Repository catalogue
 
-This table is the canonical list. Visibility is **Public** or **Private**. Status uses the labels defined in [`standards/DOCUMENTATION.md`](standards/DOCUMENTATION.md#status-labels).
+This table is the canonical list. Visibility is **Public** or **Private**. Repository status uses the repository lifecycle labels defined in [`standards/DOCUMENTATION.md`](standards/DOCUMENTATION.md#repository-status-labels); repositories are not components, so the component status labels do not apply to them.
 
 ### Organization
 
-| Repository | Visibility | Responsibility | Status |
+| Repository | Visibility | Responsibility | Repository status |
 | --- | --- | --- | --- |
 | `.github` | **Public** | Organization profile, engineering standards, reusable workflows, templates and community defaults | Active |
 | `.github-private` | Private | Member-only organization profile | Active |
 
 ### New TAG repositories
 
-Created in phase R01. Each holds a scaffold only until its migration phase lands; none is implemented or deployed yet.
+Created in phase R01. Each holds a scaffold only until its migration phase lands; none of their components is implemented or deployed yet.
 
-| Repository | Visibility | Responsibility | Status |
+| Repository | Visibility | Responsibility | Repository status |
 | --- | --- | --- | --- |
-| `aletia` | Private | Standalone trust and business-record product (parties, Nexuses, permissions, append-only ledger). TAG consumes it through its published APIs. | Proposed but not implemented |
-| `tag-agents` | Private | Agent definitions and capability metadata, general-purpose agent execution and agent identity | Proposed but not implemented |
-| `tag-connectors` | Private | External provider APIs, provider credential custody and vendor adapters | Proposed but not implemented |
-| `tag-skills` | Private | Installable skills in the open Agent Skills format | Proposed but not implemented |
-| `tag-mcp` | Private | Client-facing MCP servers: discovery, authorization metadata, routing and tool exposure | Proposed but not implemented |
+| `tag-agents` | Private | Agent definitions and capability metadata, general-purpose agent execution and agent identity | New |
+| `tag-connectors` | Private | External provider APIs, provider credential custody and vendor adapters | New |
+| `tag-skills` | Private | Installable skills in the open Agent Skills format | New |
+| `tag-mcp` | Private | Client-facing MCP servers: discovery, authorization metadata, routing and tool exposure | New |
+
+### Standalone products
+
+Separate from TAG. TAG consumes them only through their published APIs.
+
+| Repository | Visibility | Responsibility | Repository status |
+| --- | --- | --- | --- |
+| `aletia` | Private | Standalone, blockchain-based trust and business-record product (parties, Nexuses, permissions, append-only ledger), separate from TAG. The mission lead will reorganize it around DeFi and on-chain use. TAG consumes it through its published APIs. | New |
 
 ### Existing TAG repositories (kept and aligned)
 
-| Repository | Visibility | Responsibility | Status |
+| Repository | Visibility | Responsibility | Repository status |
 | --- | --- | --- | --- |
 | `tag-harness` | Private | Personal workspace experience: conversations, work, documents, organization context | Active |
 | `tag-backoffice` | Private | Finance, People and Governance business execution | Active |
@@ -75,14 +82,14 @@ Created in phase R01. Each holds a scaffold only until its migration phase lands
 
 Migration sources. They are preserved unchanged: not renamed, archived or deleted, and the reorganization does not commit to them.
 
-| Repository | Visibility | Responsibility | Status |
+| Repository | Visibility | Responsibility | Repository status |
 | --- | --- | --- | --- |
-| `tag-mvp-ux` | Private | Original platform application; source for `aletia`, `tag-agents` and part of `tag-connectors` | Deprecated or legacy |
-| `TAG-Gateway` | Private | Original vendor gateway; primary source for `tag-connectors` | Deprecated or legacy |
-| `truss-interfaces` | Private | Original client and firm portals | Deprecated or legacy |
-| `xero-mcp-server` | Private | Original accounting-provider MCP server; source for `tag-connectors` and `tag-mcp` | Deprecated or legacy |
-| `truss-mobile` | Private | Dormant mobile prototype, kept for reference | Deprecated or legacy |
-| `cardano-api`, `escrow-plutus`, `marlowe-test`, `equipment-payment` | Private | 2022 experiments, not part of TAG | Deprecated or legacy |
+| `tag-mvp-ux` | Private | Original platform application; source for `aletia`, `tag-agents` and part of `tag-connectors` | Legacy source |
+| `TAG-Gateway` | Private | Original vendor gateway; primary source for `tag-connectors` | Legacy source |
+| `truss-interfaces` | Private | Original client and firm portals | Legacy source |
+| `xero-mcp-server` | Private | Original accounting-provider MCP server; source for `tag-connectors` and `tag-mcp` | Legacy source |
+| `truss-mobile` | Private | Dormant mobile prototype, kept for reference | Legacy source |
+| `cardano-api`, `escrow-plutus`, `marlowe-test`, `equipment-payment` | Private | 2022 experiments, not part of TAG | Not in scope |
 
 **Which repositories may be public.** Repositories are private by default. SDKs and other repositories meant for end users or external developers may be made public, each by its own ADR ([`standards/REPOSITORIES.md`](standards/REPOSITORIES.md#visibility)).
 
