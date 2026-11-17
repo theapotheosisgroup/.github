@@ -20,7 +20,6 @@ What every repository documents, where it lives, and how decisions are recorded.
 
 The files every application repository must have are listed in [REPOSITORIES](REPOSITORIES.md#required-contents). In addition:
 
-- `README.md` states the repository's responsibility, its contract, its status label, how to develop locally, and how it is released and rolled back.
 - `ARCHITECTURE.md` describes the internal structure, the boundaries and any known violation of the dependency rules ([ARCHITECTURE](ARCHITECTURE.md#forbidden-dependencies)) with its migration plan.
 - Code migrated from another repository has a `PROVENANCE.md` recording, for each moved module, the original repository, path and commit SHA, the new path, contract differences, tests migrated, consumers affected, compatibility strategy and cutover prerequisites.
 
