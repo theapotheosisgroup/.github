@@ -28,7 +28,7 @@ Consistent policies with technology-specific implementations. This standard does
 ### Python
 
 - **Package management: `uv`.** Projects declare dependencies in `pyproject.toml` and commit `uv.lock`. CI installs with `uv sync --frozen` and checks the lock is current with `uv lock --check`.
-- Pin the interpreter with `.python-version` and `requires-python`. Pin uv with `[tool.uv] required-version` where reproducibility matters.
+- Pin the interpreter with `.python-version` and `requires-python`. Pin uv with `[tool.uv] required-version` where reproducibility matters; a repository that does so must pass a matching `uv-version` to the shared Python workflow, whose pinned default otherwise overrides it ([CI-CD](CI-CD.md#shared-workflows)).
 - Images install from the lockfile too (`uv sync --frozen --no-dev`), never `pip install .` against unpinned ranges.
 - **Formatting and lint:** Ruff (`ruff format`, `ruff check`). A repository with an existing linter keeps it until a reviewed change replaces it.
 - **Types:** Pyright, or the repository's existing type checker. New code is fully annotated.

@@ -88,7 +88,7 @@ Migration sources. They are preserved unchanged: not renamed, archived or delete
 | `TAG-Gateway` | Private | Original vendor gateway; primary source for `tag-connectors` | Legacy source |
 | `truss-interfaces` | Private | Original client and firm portals | Legacy source |
 | `xero-mcp-server` | Private | Original accounting-provider MCP server; source for `tag-connectors` and `tag-mcp` | Legacy source |
-| `truss-mobile` | Private | Dormant mobile prototype, kept for reference | Legacy source |
+| `truss-mobile` | Private | Original TRUSS mobile app; read-only migration source for the reorganization | Legacy source |
 | `cardano-api`, `escrow-plutus`, `marlowe-test`, `equipment-payment` | Private | 2022 experiments, not part of TAG | Not in scope |
 
 **Which repositories may be public.** Repositories are private by default. SDKs and other repositories meant for end users or external developers may be made public, each by its own ADR ([`standards/REPOSITORIES.md`](standards/REPOSITORIES.md#visibility)).

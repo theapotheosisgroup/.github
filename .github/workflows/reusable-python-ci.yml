@@ -28,7 +28,7 @@ on:
         type: string
         default: ""
       uv-version:
-        description: Exact uv version to install. Pass a newer exact version to upgrade; never "latest".
+        description: Exact uv version to install; overrides the project's [tool.uv] required-version, so a project that sets required-version must pass a matching uv-version. Never "latest".
         type: string
         default: "0.13.8"
       format-command:
