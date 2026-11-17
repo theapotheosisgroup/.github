@@ -1,7 +1,8 @@
 # Self-test: calls every reusable workflow in this repository against the small fixtures in
 # tests/fixtures/, so each shared workflow is proven to run before another repository calls it.
 # The fixtures exist only to exercise the workflows. They are not application code.
-# reusable-security.yml is called by ci.yml, against this whole repository.
+# reusable-security.yml is exercised by ci.yml (its security job), against this whole repository
+# with dependency review on, so it is covered without a second call here.
 name: self-test
 
 on:

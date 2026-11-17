@@ -50,7 +50,7 @@ jobs:
 
 - Every check has a conventional default and runs unless the caller turns it off by passing an empty string. The job summary lists each check as run or **skipped by caller**, so an opt-out is visible.
 - The workflows never push, publish, deploy or read cloud credentials.
-- `dependency-review` is off by default because GitHub provides it on public repositories, and on private repositories only with GitHub Code Security or GitHub Advanced Security. Vulnerability and license checks run for every repository through OSV-Scanner in the `dependencies` job.
+- `dependency-review` is off by default. Public repositories, and private repositories with GitHub Code Security or GitHub Advanced Security enabled, turn it on. It needs the repository's dependency graph; see [Enable the dependency graph](#7-enable-the-dependency-graph). When it does not run (turned off, or the event is not a pull request), the `dependencies` job summary says so and why. Vulnerability and license checks run and block for every repository through OSV-Scanner in the `dependencies` job.
 - The workflow headers document every input. [`self-test.yml`](../.github/workflows/self-test.yml) calls each workflow against the fixtures in [`tests/fixtures/`](../tests/fixtures/README.md) on every pull request, so a change that breaks a workflow cannot merge.
 - [Workflow templates](../workflow-templates/) give new repositories a starting caller for each workflow (**Actions → New workflow**, under the organization's templates).
 
@@ -150,3 +150,7 @@ In **Repository settings → Security → Private vulnerability reporting**, sel
 ### 6. Code owner teams
 
 When the organization creates teams, replace the individual owners in [CODEOWNERS](../CODEOWNERS) with a team that has write access to this repository.
+
+### 7. Enable the dependency graph
+
+In **Repository settings → Code security**, enable **Dependency graph** and **Dependabot alerts**. Dependency review needs the dependency graph: on public repositories this is enough; private repositories also need GitHub Code Security. Without it, the `dependency-review` job fails with "Dependency review is not supported on this repository". It is enabled on this repository.

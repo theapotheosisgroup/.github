@@ -6,9 +6,11 @@
 #                 (standards/SECURITY.md). Per-package exceptions live in osv-scanner.toml
 #                 beside the lockfile, each with a written reason.
 #   dependency-review
-#                 GitHub's dependency review on pull requests. Opt-in: it works on public
-#                 repositories, and on private ones only with GitHub Code Security or GitHub
-#                 Advanced Security enabled.
+#                 GitHub's dependency review on pull requests. Opt-in: turn it on in public
+#                 repositories, and in private ones with GitHub Code Security or GitHub
+#                 Advanced Security enabled. It needs the repository's dependency graph.
+#                 When it does not run, the dependencies job summary says so and why;
+#                 the OSV-Scanner vulnerability and license checks still run and block.
 #
 # Usage (see standards/CI-CD.md for pinning rules):
 #   jobs:
@@ -34,7 +36,7 @@ on:
         type: string
         default: "MIT,Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,0BSD,MPL-2.0,PSF-2.0,Python-2.0,Unlicense,CC0-1.0,BlueOak-1.0.0,Zlib"
       dependency-review:
-        description: Run GitHub dependency review on pull requests (public repositories, or private with GitHub Code Security).
+        description: Run GitHub dependency review on pull requests. Turn on in public repositories, and in private ones with GitHub Code Security or Advanced Security. Needs the repository's dependency graph enabled.
         type: boolean
         default: false
       dependency-review-fail-on-severity:
@@ -136,6 +138,27 @@ jobs:
             args+=(--allow-no-lockfiles)
           fi
           osv-scanner "${args[@]}" .
+
+      - name: Report whether dependency review runs
+        if: always()
+        env:
+          DEPENDENCY_REVIEW: ${{ inputs.dependency-review }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$DEPENDENCY_REVIEW" != true ]]; then
+            status="**not run**: turned off by the caller (\`dependency-review: false\`)"
+          elif [[ "$EVENT_NAME" != pull_request ]]; then
+            status="**not run**: the event is \`$EVENT_NAME\`, and dependency review runs only on pull requests"
+          else
+            status="runs in the \`dependency-review\` job"
+          fi
+          {
+            echo "### Security checks"
+            echo
+            echo "- OSV-Scanner vulnerabilities and license allowlist: run (blocking)"
+            echo "- GitHub dependency review: $status"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   dependency-review:
     name: dependency-review
